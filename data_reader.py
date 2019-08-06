@@ -32,11 +32,15 @@ class DataReader:
 
         # Apply the same for the test.csv set (validation data)
         x_val = pd.read_csv(self.directory + '/' + self.test_file)
+        x_val = x_val.dropna()
         x_val = x_val.drop(['Name'], axis=1)
+
+        # Save passenger id for the output file
+        ids = x_val['PassengerId']
+
         x_val = x_val.drop(['PassengerId'], axis=1)
         x_val = x_val.drop(['Cabin'], axis=1)
         x_val = x_val.drop(['Ticket'], axis=1)
         x_val['Sex'] = x_val['Sex'].astype('category').cat.codes
         x_val['Embarked'] = x_val['Embarked'].astype('category').cat.codes
-        x_val = x_val.dropna()
-        return x, y, x_val
+        return x, y, x_val, ids

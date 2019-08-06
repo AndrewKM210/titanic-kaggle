@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 from keras.callbacks import ModelCheckpoint
+from keras.engine.saving import model_from_json
+
 from data_reader import DataReader
 from graphics import Graphics
-import numpy
+import numpy as np
 import pandas as pd
 from keras.optimizers import RMSprop
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
@@ -34,8 +36,40 @@ def create_baseline():
     return m
 
 
+def save_model(_model):
+
+    model_json = _model.to_json()
+    with open("model.json", "w") as json_file:
+        json_file.write(model_json)
+
+    # serialize weights to HDF5
+    model.save_weights("model.h5")
+    print("Saved model to disk")
+
+
+def load_model():
+
+    # load json and create model
+    json_file = open('model.json', 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    loaded_model = model_from_json(loaded_model_json)
+    # load weights into new model
+    loaded_model.load_weights("model.h5")
+    print("Loaded model from disk")
+    return loaded_model
+
+
+def output_predictions(_predictions):
+    _predictions = pd.DataFrame(_predictions)
+    with open('predictions.csv', 'w') as f:
+        f.write('PassengerId,Survived\n')
+
+    _predictions.to_csv('predictions.csv', index=False, header=False, mode='a')
+
+
 reader = DataReader('data', 'train.csv', 'test.csv')
-x, y, x_val = reader.obtain_data()
+x, y, x_val, ids = reader.obtain_data()
 
 # Standarize training and test set
 scaler = RobustScaler()
@@ -88,7 +122,7 @@ elif algorithm == '2':
 
     # Create random seed
     seed = 5
-    numpy.random.seed(seed)
+    np.random.seed(seed)
 
     # Create a keras classifier with a model returned by the create_baseline function
     estimator = KerasClassifier(build_fn=create_baseline, epochs=100, batch_size=5, verbose=1)
@@ -102,21 +136,30 @@ elif algorithm == '2':
 
 elif algorithm == '3':
 
-    # Create de model
-    model = Sequential()
+    print('1- Load previous model')
+    print('2- Train model')
+    option = input('Choose option')
 
-    # Add layers to the model
-    model.add(Dense(64, input_dim=7, activation='relu'))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dense(1, activation='sigmoid'))
+    if option == '2':
+        # Create de model
+        model = Sequential()
 
-    # Compile the model with an Adam optimizar and a learning rate of 0.02
-    model.compile(loss='binary_crossentropy', optimizer=RMSprop(lr=0.0001))
-    checkpoint = ModelCheckpoint('keras_models/weights.hdf5', monitor='val_loss', verbose=0, save_best_only=True, mode='auto')
+        # Add layers to the model
+        model.add(Dense(64, input_dim=7, activation='relu'))
+        model.add(Dense(32, activation='relu'))
+        model.add(Dense(1, activation='sigmoid'))
 
-    # Train the model
-    history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=16, epochs=10, callbacks=[checkpoint])
-    model.load_weights('keras_models/weights.hdf5')
+        # Compile the model with an Adam optimizar and a learning rate of 0.02
+        model.compile(loss='binary_crossentropy', optimizer=RMSprop(lr=0.0001))
+        checkpoint = ModelCheckpoint('keras_models/weights.hdf5', monitor='val_loss', verbose=0, save_best_only=True, mode='auto')
+
+        # Train the model
+        history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=4, epochs=100, callbacks=[checkpoint])
+        model.load_weights('keras_models/weights.hdf5')
+        save_model(model)
+
+    else:
+        model = load_model()
 
     # Make predictions
     predictions = model.predict(x_test)
@@ -124,10 +167,17 @@ elif algorithm == '3':
 
     # Load prediction data and history to plot interesting graphs
     graphics = Graphics()
-    graphics.load_data(history, predictions, y_test)
+    # graphics.load_data(history, predictions, y_test)
 
     # Plot the evolution of cost during the training
-    graphics.plot_loss()
+    # graphics.plot_loss()
 
     # Plot a confusion matrix
-    graphics.confusion_matrix()
+    # graphics.confusion_matrix()
+
+    predictions = model.predict(x_val)
+    predictions = predictions.round()
+    predictions = pd.DataFrame(predictions)
+    ids = pd.DataFrame(ids)
+    ids = ids.join(predictions).head()
+    output_predictions(ids)
