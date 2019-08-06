@@ -1,18 +1,19 @@
 #!/usr/bin/env python
-__author__ = "Andrew Mackay"
-
+from keras.callbacks import ModelCheckpoint
+from data_reader import DataReader
+from graphics import Graphics
 import numpy
 import pandas as pd
-from keras.optimizers import Adam
-from keras.utils import to_categorical
+from keras.optimizers import RMSprop
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.preprocessing import RobustScaler
 from xgboost import XGBClassifier
 import matplotlib.pyplot as plt
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasClassifier
 
+__author__ = "Andrew Mackay"
 
 def create_baseline():
     """
@@ -32,51 +33,8 @@ def create_baseline():
     return m
 
 
-def plot_loss(h):
-    """
-    Plots the evolution of training loss during training of the model
-    :param h: history of training loss
-    """
-
-    plt.plot(h.history['loss'])
-    plt.plot(h.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.show()
-
-
-# Obtain the data from the train.csv file
-train = pd.read_csv('train.csv')
-
-# Drop the name, passenger id, cabin and ticket columns, since they are not relevant for training
-train = train.drop(['Name'], axis=1)
-train = train.drop(['PassengerId'], axis=1)
-train = train.drop(['Cabin'], axis=1)
-train = train.drop(['Ticket'], axis=1)
-
-# Convert the sex and embarked columns in to integers
-train['Sex'] = train['Sex'].astype('category').cat.codes
-train['Embarked'] = train['Embarked'].astype('category').cat.codes
-
-# Drop all remaining null rows
-train = train.dropna()
-
-# Separate x and y in the data set
-x = train.drop(['Survived'], axis=1)
-y = train['Survived']
-y = to_categorical(y)
-
-# Apply the same for the test.csv set (validation data)
-x_val = pd.read_csv('test.csv')
-x_val = x_val.drop(['Name'], axis=1)
-x_val = x_val.drop(['PassengerId'], axis=1)
-x_val = x_val.drop(['Cabin'], axis=1)
-x_val = x_val.drop(['Ticket'], axis=1)
-x_val['Sex'] = x_val['Sex'].astype('category').cat.codes
-x_val['Embarked'] = x_val['Embarked'].astype('category').cat.codes
-x_val = x_val.dropna()
+reader = DataReader('train.csv', 'test.csv')
+x, y, x_val = reader.obtain_data()
 
 # Standarize training and test set
 scaler = RobustScaler()
@@ -92,7 +50,8 @@ x_val = pd.DataFrame(x_val, columns=x_train.columns)
 print('1-XGBoost')
 print('2-Keras kmeans')
 print('3-Keras')
-algorithm = input("Enter an algorithm: ")
+# algorithm = input("Enter an algorithm: ")
+algorithm = '3'
 
 if algorithm == '1':
 
@@ -147,14 +106,20 @@ if algorithm == '3':
     model = Sequential()
 
     # Add layers to the model
-    model.add(Dense(300, init='uniform', input_dim=x_train.shape[1], activation='relu'))
-    model.add(Dense(1, init='uniform', activation='softmax'))
-
+    model.add(Dense(64, input_dim=7, activation='relu'))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dense(1, activation='sigmoid'))
+    print(model.summary())
     # Compile the model with an Adam optimizar and a learning rate of 0.02
-    model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.02))
-
+    model.compile(loss='binary_crossentropy', optimizer=RMSprop(lr=0.0001))
+    checkpoint = ModelCheckpoint("weights.hdf5", monitor='val_loss', verbose=0, save_best_only=True, mode='auto')
     # Train the model
-    history = model.fit(x_train, y_train, batch_size=32, epochs=10)
-
+    history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=16, epochs=10, callbacks=[checkpoint])
+    model.load_weights("weights.hdf5")
+    predictions = model.predict(x_test)
+    predictions = predictions.round()
     # Plot the evolution of cost during the training
-    plot_loss(history)
+    # plot_loss(history)
+    graphics = Graphics()
+    graphics.load_data(history, predictions, y_test)
+    graphics.confusion_matrix()
