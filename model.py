@@ -13,7 +13,8 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasClassifier
 
-__author__ = "Andrew Mackay"
+__author__ = 'Andrew Mackay'
+
 
 def create_baseline():
     """
@@ -33,7 +34,7 @@ def create_baseline():
     return m
 
 
-reader = DataReader('train.csv', 'test.csv')
+reader = DataReader('data', 'train.csv', 'test.csv')
 x, y, x_val = reader.obtain_data()
 
 # Standarize training and test set
@@ -50,8 +51,7 @@ x_val = pd.DataFrame(x_val, columns=x_train.columns)
 print('1-XGBoost')
 print('2-Keras kmeans')
 print('3-Keras')
-# algorithm = input("Enter an algorithm: ")
-algorithm = '3'
+algorithm = input("Enter an algorithm: ")
 
 if algorithm == '1':
 
@@ -84,7 +84,7 @@ if algorithm == '1':
     plt.title('XGBoost Classification Error')
     plt.show()
 
-if algorithm == '2':
+elif algorithm == '2':
 
     # Create random seed
     seed = 5
@@ -100,7 +100,7 @@ if algorithm == '2':
     results = cross_val_score(estimator, x_train, y_train, cv=kfold)
     print("Results: %.2f%% (%.2f%%)" % (results.mean() * 100, results.std() * 100))
 
-if algorithm == '3':
+elif algorithm == '3':
 
     # Create de model
     model = Sequential()
@@ -109,17 +109,25 @@ if algorithm == '3':
     model.add(Dense(64, input_dim=7, activation='relu'))
     model.add(Dense(32, activation='relu'))
     model.add(Dense(1, activation='sigmoid'))
-    print(model.summary())
+
     # Compile the model with an Adam optimizar and a learning rate of 0.02
     model.compile(loss='binary_crossentropy', optimizer=RMSprop(lr=0.0001))
-    checkpoint = ModelCheckpoint("weights.hdf5", monitor='val_loss', verbose=0, save_best_only=True, mode='auto')
+    checkpoint = ModelCheckpoint('keras_models/weights.hdf5', monitor='val_loss', verbose=0, save_best_only=True, mode='auto')
+
     # Train the model
     history = model.fit(x_train, y_train, validation_data=(x_test, y_test), batch_size=16, epochs=10, callbacks=[checkpoint])
-    model.load_weights("weights.hdf5")
+    model.load_weights('keras_models/weights.hdf5')
+
+    # Make predictions
     predictions = model.predict(x_test)
     predictions = predictions.round()
-    # Plot the evolution of cost during the training
-    # plot_loss(history)
+
+    # Load prediction data and history to plot interesting graphs
     graphics = Graphics()
     graphics.load_data(history, predictions, y_test)
+
+    # Plot the evolution of cost during the training
+    graphics.plot_loss()
+
+    # Plot a confusion matrix
     graphics.confusion_matrix()

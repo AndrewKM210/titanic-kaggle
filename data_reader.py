@@ -3,14 +3,15 @@ import pandas as pd
 
 class DataReader:
 
-    def __init__(self, train_file, test_file):
+    def __init__(self, directory, train_file, test_file):
+        self.directory = directory
         self.train_file = train_file
         self.test_file = test_file
 
     def obtain_data(self):
 
         # Obtain the data from the train.csv file
-        train = pd.read_csv(self.train_file)
+        train = pd.read_csv(self.directory + '/' + self.train_file)
 
         # Drop the name, passenger id, cabin and ticket columns, since they are not relevant for training
         train = train.drop(['Name'], axis=1)
@@ -30,7 +31,7 @@ class DataReader:
         y = train['Survived']
 
         # Apply the same for the test.csv set (validation data)
-        x_val = pd.read_csv(self.test_file)
+        x_val = pd.read_csv(self.directory + '/' + self.test_file)
         x_val = x_val.drop(['Name'], axis=1)
         x_val = x_val.drop(['PassengerId'], axis=1)
         x_val = x_val.drop(['Cabin'], axis=1)
