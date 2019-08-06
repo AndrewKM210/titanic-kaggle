@@ -43,7 +43,7 @@ def save_model(_model):
         json_file.write(model_json)
 
     # serialize weights to HDF5
-    model.save_weights("model.h5")
+    model.save_weights("keras_models/model.h5")
     print("Saved model to disk")
 
 
@@ -55,17 +55,17 @@ def load_model():
     json_file.close()
     loaded_model = model_from_json(loaded_model_json)
     # load weights into new model
-    loaded_model.load_weights("model.h5")
+    loaded_model.load_weights("keras_models/model.h5")
     print("Loaded model from disk")
     return loaded_model
 
 
 def output_predictions(_predictions):
     _predictions = pd.DataFrame(_predictions)
-    with open('predictions.csv', 'w') as f:
+    with open('output/predictions.csv', 'w') as f:
         f.write('PassengerId,Survived\n')
 
-    _predictions.to_csv('predictions.csv', index=False, header=False, mode='a')
+    _predictions.to_csv('output/predictions.csv', index=False, header=False, mode='a')
 
 
 reader = DataReader('data', 'train.csv', 'test.csv')
