@@ -85,7 +85,8 @@ x_val = pd.DataFrame(x_val, columns=x_train.columns)
 print('1-XGBoost')
 print('2-Keras kmeans')
 print('3-Keras')
-algorithm = input("Enter an algorithm: ")
+# algorithm = input("Enter an algorithm: ")
+algorithm = '1'
 
 if algorithm == '1':
 
@@ -101,22 +102,35 @@ if algorithm == '1':
     # Train the model
     model.fit(x_train, y_train, eval_metric=eval_metric, eval_set=eval_set, verbose=True)
 
-    # Once the model is trained, we can make a prediction
+    # # Once the model is trained, we can make a prediction
+    # # Start with the test set, so we can evaluate the model
+    # pred = model.predict_proba(x_test)
+    # pred = pred.values
+    # pred = pred[:, 1]
+    #
+    # # Obtain the metrics of the training
+    # results = model.evals_result()
+    # epochs = len(results['validation_0']['error'])
+    # x_axis = range(0, epochs)
+    #
+    # # Draw the evolution of cost and accuray values during training
+    # fig, ax = plt.subplots()
+    # ax.plot(x_axis, results['validation_0']['error'], label='Train')
+    # ax.plot(x_axis, results['validation_1']['error'], label='Test')
+    # ax.legend()
+    # plt.ylabel('Classification Error')
+    # plt.title('XGBoost Classification Error')
+    #
+    # # Load the graphics class created
+    # graphics = Graphics()
+    # graphics.load_data(None, pred, y_test.values)
+    #
+    # # Plot a confusion matrix
+    # graphics.confusion_matrix()
+
+    # Now, with the val set we can output to get results
     pred = model.predict_proba(x_val)
-
-    # Obtain the metrics of the training
-    results = model.evals_result()
-    epochs = len(results['validation_0']['error'])
-    x_axis = range(0, epochs)
-
-    # Draw the evolution of cost and accuray values during training
-    fig, ax = plt.subplots()
-    ax.plot(x_axis, results['validation_0']['error'], label='Train')
-    ax.plot(x_axis, results['validation_1']['error'], label='Test')
-    ax.legend()
-    plt.ylabel('Classification Error')
-    plt.title('XGBoost Classification Error')
-    plt.show()
+    print(ids)
 
 elif algorithm == '2':
 
