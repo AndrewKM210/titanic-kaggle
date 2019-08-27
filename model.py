@@ -10,10 +10,12 @@ from keras.optimizers import RMSprop
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.preprocessing import RobustScaler
 from xgboost import XGBClassifier
+from xgboost import plot_importance
 import matplotlib.pyplot as plt
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasClassifier
+import matplotlib.pyplot as plt
 
 __author__ = 'Andrew Mackay'
 
@@ -72,14 +74,15 @@ reader = DataReader('data', 'train.csv', 'test.csv')
 x, y, x_val, ids = reader.obtain_data()
 
 # Standarize training and test set
-scaler = RobustScaler()
-scaler.fit(x)
-x_train = scaler.transform(x)
-x_val = scaler.transform(x_val)
+# scaler = RobustScaler()
+# scaler.fit(x)
+# x_train = scaler.transform(x)
+# x_val = scaler.transform(x_val)
 
 # Separate train and test from the data set
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 x_val = pd.DataFrame(x_val, columns=x_train.columns)
+
 
 # Choose which model to apply
 print('1-XGBoost')
@@ -94,43 +97,73 @@ if algorithm == '1':
     eval_set = [(x_train, y_train), (x_test, y_test)]
 
     # Establish evaluation metrics
-    eval_metric = ["auc", "error"]
+    eval_metric = ["error", "logloss"]
 
     # Create the XGBClassifier, with 100 iterations, maximum depth of 6 and learning rate of 0.001
-    model = XGBClassifier(silent=False, n_estimators=100, learning_rate=0.001, max_depth=6)
+    model = XGBClassifier(silent=False, n_estimators=1000, objective='binary:logistic', learning_rate=0.001, max_depth=10)
 
     # Train the model
     model.fit(x_train, y_train, eval_metric=eval_metric, eval_set=eval_set, verbose=True)
 
-    # # Once the model is trained, we can make a prediction
-    # # Start with the test set, so we can evaluate the model
-    # pred = model.predict_proba(x_test)
-    # pred = pred.values
-    # pred = pred[:, 1]
-    #
-    # # Obtain the metrics of the training
-    # results = model.evals_result()
-    # epochs = len(results['validation_0']['error'])
-    # x_axis = range(0, epochs)
-    #
-    # # Draw the evolution of cost and accuray values during training
-    # fig, ax = plt.subplots()
-    # ax.plot(x_axis, results['validation_0']['error'], label='Train')
-    # ax.plot(x_axis, results['validation_1']['error'], label='Test')
-    # ax.legend()
-    # plt.ylabel('Classification Error')
-    # plt.title('XGBoost Classification Error')
-    #
-    # # Load the graphics class created
-    # graphics = Graphics()
-    # graphics.load_data(None, pred, y_test.values)
-    #
-    # # Plot a confusion matrix
-    # graphics.confusion_matrix()
+    # Once the model is trained, we can make a prediction
+    # Start with the test set, so we can evaluate the model
+    pred = model.predict_proba(x_test)
+
+    # Obtain the predictions of survival (not the probabilty of no survival)
+    pred = pred[:, 1]
+
+    # Round the predictions, so if the probability of survivability is greater then 0.5 then it predicts that the
+    # person survives
+    pred = pred.round()
+
+    # Obtain the metrics of the training
+    results = model.evals_result()
+    epochs = len(results['validation_0']['error'])
+    x_axis = range(0, epochs)
+
+    # Plot log loss
+    fig, ax = plt.subplots()
+    ax.plot(x_axis, results['validation_0']['logloss'], label='Train')
+    ax.plot(x_axis, results['validation_1']['logloss'], label='Test')
+    ax.legend()
+    plt.ylabel('Log Loss')
+    plt.title('XGBoost Log Loss')
+
+    # Plot classification error
+    fig, ax = plt.subplots()
+    ax.plot(x_axis, results['validation_0']['error'], label='Train')
+    ax.plot(x_axis, results['validation_1']['error'], label='Test')
+    ax.legend()
+    plt.ylabel('Classification Error')
+    plt.title('XGBoost Classification Error')
+
+    # Load the graphics class created
+    graphics = Graphics()
+    graphics.load_data(model, None, pred, y_test.values)
+
+    # Plot a confusion matrix
+    graphics.confusion_matrix()
+
+    # Plot a feature importance graph
+    graphics.plot_feature_importance()
 
     # Now, with the val set we can output to get results
-    pred = model.predict_proba(x_val)
-    print(ids)
+    pred = model.predict_proba(x_val)[:, 1].round()
+
+    # For the submission, the ids must appear next to the prediction
+
+    # Create a DataFrame out of the two ndarrays
+    final_prediction = pd.DataFrame({'id': ids.transpose(), 'survives': pred.transpose()})
+
+    # Change the data to integers
+    final_prediction['id'] = final_prediction['id'].astype(int)
+    final_prediction['survives'] = final_prediction['survives'].astype(int)
+
+    # Output the final submission
+    output_predictions(final_prediction)
+
+    # Show al the graphics
+    graphics.show()
 
 elif algorithm == '2':
 

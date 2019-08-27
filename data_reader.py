@@ -23,8 +23,9 @@ class DataReader:
         train['Sex'] = train['Sex'].astype('category').cat.codes
         train['Embarked'] = train['Embarked'].astype('category').cat.codes
 
-        # Drop all remaining null rows
-        train = train.dropna()
+        # Give null ages the average age
+        age_average = train['Age'].dropna().mean()
+        train['Age'] = train['Age'].fillna(age_average)
 
         # Separate x and y in the data set
         x = train.drop(['Survived'], axis=1)
@@ -32,7 +33,6 @@ class DataReader:
 
         # Apply the same for the test.csv set (validation data)
         x_val = pd.read_csv(self.directory + '/' + self.test_file)
-        x_val = x_val.dropna()
         x_val = x_val.drop(['Name'], axis=1)
 
         # Save passenger id for the output file
@@ -43,4 +43,7 @@ class DataReader:
         x_val = x_val.drop(['Ticket'], axis=1)
         x_val['Sex'] = x_val['Sex'].astype('category').cat.codes
         x_val['Embarked'] = x_val['Embarked'].astype('category').cat.codes
+        age_average = x_val['Age'].dropna().mean()
+        x_val['Age'] = x_val['Age'].fillna(age_average)
+
         return x, y, x_val, ids
