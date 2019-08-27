@@ -8,10 +8,7 @@ import numpy as np
 import pandas as pd
 from keras.optimizers import RMSprop
 from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
-from sklearn.preprocessing import RobustScaler
 from xgboost import XGBClassifier
-from xgboost import plot_importance
-import matplotlib.pyplot as plt
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasClassifier
