@@ -27,6 +27,10 @@ class DataReader:
         age_average = train['Age'].dropna().mean()
         train['Age'] = train['Age'].fillna(age_average)
 
+        # Give null fares the average fare
+        fare_average = train['Fare'].dropna().mean()
+        train['Fare'] = train['Fare'].fillna(fare_average)
+
         # Separate x and y in the data set
         x = train.drop(['Survived'], axis=1)
         y = train['Survived']
@@ -45,5 +49,7 @@ class DataReader:
         x_val['Embarked'] = x_val['Embarked'].astype('category').cat.codes
         age_average = x_val['Age'].dropna().mean()
         x_val['Age'] = x_val['Age'].fillna(age_average)
+        fare_average = x_val['Fare'].dropna().mean()
+        x_val['Fare'] = x_val['Fare'].fillna(fare_average)
 
         return x, y, x_val, ids

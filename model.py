@@ -41,7 +41,7 @@ def create_baseline():
 def save_model(_model):
 
     model_json = _model.to_json()
-    with open("model.json", "w") as json_file:
+    with open("keras_models/model.json", "w") as json_file:
         json_file.write(model_json)
 
     # serialize weights to HDF5
@@ -52,7 +52,7 @@ def save_model(_model):
 def load_model():
 
     # load json and create model
-    json_file = open('model.json', 'r')
+    json_file = open('keras_models/model.json', 'r')
     loaded_model_json = json_file.read()
     json_file.close()
     loaded_model = model_from_json(loaded_model_json)
@@ -62,12 +62,12 @@ def load_model():
     return loaded_model
 
 
-def output_predictions(_predictions):
+def output_predictions(_predictions, name):
     _predictions = pd.DataFrame(_predictions)
-    with open('output/predictions.csv', 'w') as f:
+    with open('output/' + name + '.csv', 'w') as f:
         f.write('PassengerId,Survived\n')
 
-    _predictions.to_csv('output/predictions.csv', index=False, header=False, mode='a')
+    _predictions.to_csv('output/' + name + '.csv', index=False, header=False, mode='a')
 
 
 reader = DataReader('data', 'train.csv', 'test.csv')
@@ -160,7 +160,7 @@ if algorithm == '1':
     final_prediction['survives'] = final_prediction['survives'].astype(int)
 
     # Output the final submission
-    output_predictions(final_prediction)
+    output_predictions(final_prediction, 'xgboost')
 
     # Show al the graphics
     graphics.show()
@@ -185,9 +185,11 @@ elif algorithm == '3':
 
     print('1- Load previous model')
     print('2- Train model')
-    option = input('Choose option')
+    # option = input('Choose option')
+    option = '1'
 
     if option == '2':
+
         # Create de model
         model = Sequential()
 
@@ -214,17 +216,29 @@ elif algorithm == '3':
 
     # Load prediction data and history to plot interesting graphs
     graphics = Graphics()
-    # graphics.load_data(history, predictions, y_test)
 
-    # Plot the evolution of cost during the training
-    # graphics.plot_loss()
+    if option == 2:
+        graphics.load_data(model, history, predictions, y_test)
+
+        # Plot the evolution of cost during the training
+        graphics.plot_loss()
+
+    else:
+        graphics.load_data(model, None, predictions, y_test)
 
     # Plot a confusion matrix
-    # graphics.confusion_matrix()
+    graphics.confusion_matrix()
 
     predictions = model.predict(x_val)
     predictions = predictions.round()
-    predictions = pd.DataFrame(predictions)
-    ids = pd.DataFrame(ids)
-    ids = ids.join(predictions).head()
-    output_predictions(ids)
+
+    # Create a DataFrame out of the two ndarrays
+    final_prediction = pd.DataFrame({'id': ids.transpose(), 'survives': predictions[:, 0].transpose()})
+
+    # Change the data to integers
+    final_prediction['id'] = final_prediction['id'].astype(int)
+    final_prediction['survives'] = final_prediction['survives'].astype(int)
+
+    output_predictions(final_prediction, 'keras')
+
+    # graphics.show()
