@@ -13,6 +13,7 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasClassifier
 import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
 
 __author__ = 'Andrew Mackay'
 
@@ -85,8 +86,10 @@ x_val = pd.DataFrame(x_val, columns=x_train.columns)
 print('1-XGBoost')
 print('2-Keras kmeans')
 print('3-Keras')
+print('4-Random Forest')
+
 # algorithm = input("Enter an algorithm: ")
-algorithm = '1'
+algorithm = '4'
 
 if algorithm == '1':
 
@@ -239,3 +242,25 @@ elif algorithm == '3':
     output_predictions(final_prediction, 'keras')
 
     # graphics.show()
+
+elif algorithm == "4":
+    clf = RandomForestClassifier()
+    model = clf.fit(x_train, y_train)
+    predictions = model.predict(x_test)
+
+    graphics = Graphics()
+    graphics.load_data(model, None, predictions, y_test)
+    graphics.confusion_matrix()
+
+    predictions = model.predict(x_val)
+
+    # Create a DataFrame out of the two ndarrays
+    final_prediction = pd.DataFrame({'id': ids.transpose(), 'survives': predictions.transpose()})
+
+    # Change the data to integers
+    final_prediction['id'] = final_prediction['id'].astype(int)
+    final_prediction['survives'] = final_prediction['survives'].astype(int)
+
+    output_predictions(final_prediction, 'randomForest')
+
+    graphics.show()
