@@ -1,95 +1,87 @@
 #!/usr/bin/env python
-from keras.callbacks import ModelCheckpoint
-from keras.engine.saving import model_from_json
-
 from data_reader import DataReader
 from graphics import Graphics
-import numpy as np
-import pandas as pd
-from keras.optimizers import RMSprop
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from keras.models import Sequential
 from keras.layers import Dense
-from keras.wrappers.scikit_learn import KerasClassifier
-import matplotlib.pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
+from keras.callbacks import ModelCheckpoint
+from keras.engine.saving import model_from_json
+from keras.optimizers import RMSprop
+import pandas as pd
 
 __author__ = 'Andrew Mackay'
 
 
-def create_baseline():
-    """
-    Creates and returns a keras neural network model
-    :return: keras neural network model
-    """
-
-    # Create the model
-    m = Sequential()
-
-    # Add layers
-    m.add(Dense(60, input_dim=7, kernel_initializer='normal', activation='relu'))
-    m.add(Dense(1, kernel_initializer='normal', activation='sigmoid'))
-
-    # Compile the model
-    m.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-    return m
-
-
 def save_model(_model):
+    """
+    Saves a keras model and its respective weights in the model.json and model.h5 files
+    :param _model: keras model to save
+    """
 
+    # Transform the model to json
     model_json = _model.to_json()
+
+    # Create the json file
     with open("keras_models/model.json", "w") as json_file:
         json_file.write(model_json)
 
-    # serialize weights to HDF5
+    # Save the weights in to the model.h5 file
     model.save_weights("keras_models/model.h5")
     print("Saved model to disk")
 
 
 def load_model():
+    """
+    Returns a model loaded from the model.json and model.h5 files
+    :return: model loaded from the model.json and model.h5 files
+    """
 
-    # load json and create model
+    # Load model from json file
     json_file = open('keras_models/model.json', 'r')
     loaded_model_json = json_file.read()
     json_file.close()
+
+    # Create model object from loaded json file
     loaded_model = model_from_json(loaded_model_json)
-    # load weights into new model
+
+    # Load weights to the loaded model
     loaded_model.load_weights("keras_models/model.h5")
     print("Loaded model from disk")
+
     return loaded_model
 
 
 def output_predictions(_predictions, name):
-    _predictions = pd.DataFrame(_predictions)
+    """
+    Outputs the predictions _predictions in to a file called "name".csv
+    :param _predictions: predictions to output (pandas DataFrame)
+    :param name: name of the file
+    """
+
+    # Writes the first line (header)
     with open('output/' + name + '.csv', 'w') as f:
         f.write('PassengerId,Survived\n')
 
+    # Writes the predictions
     _predictions.to_csv('output/' + name + '.csv', index=False, header=False, mode='a')
 
 
+# Start of main program, loads data from the DataReader class
 reader = DataReader('data', 'train.csv', 'test.csv')
 x, y, x_val, ids = reader.obtain_data()
-
-# Standarize training and test set
-# scaler = RobustScaler()
-# scaler.fit(x)
-# x_train = scaler.transform(x)
-# x_val = scaler.transform(x_val)
 
 # Separate train and test from the data set
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 x_val = pd.DataFrame(x_val, columns=x_train.columns)
 
-
 # Choose which model to apply
 print('1-XGBoost')
-print('2-Keras kmeans')
-print('3-Keras')
-print('4-Random Forest')
+print('2-Keras')
+print('3-Random Forest')
 
-# algorithm = input("Enter an algorithm: ")
-algorithm = '4'
+algorithm = input("Enter an algorithm: ")
 
 if algorithm == '1':
 
@@ -121,37 +113,24 @@ if algorithm == '1':
     epochs = len(results['validation_0']['error'])
     x_axis = range(0, epochs)
 
-    # Plot log loss
-    fig, ax = plt.subplots()
-    ax.plot(x_axis, results['validation_0']['logloss'], label='Train')
-    ax.plot(x_axis, results['validation_1']['logloss'], label='Test')
-    ax.legend()
-    plt.ylabel('Log Loss')
-    plt.title('XGBoost Log Loss')
-
-    # Plot classification error
-    fig, ax = plt.subplots()
-    ax.plot(x_axis, results['validation_0']['error'], label='Train')
-    ax.plot(x_axis, results['validation_1']['error'], label='Test')
-    ax.legend()
-    plt.ylabel('Classification Error')
-    plt.title('XGBoost Classification Error')
-
     # Load the graphics class created
     graphics = Graphics()
-    graphics.load_data(model, None, pred, y_test.values)
+    graphics.load_data(pred, y_test.values)
+
+    # Plot the log loss and classification error of the training
+    graphics.xgboost_plot_classification_error(x_axis, results)
+    graphics.xgboost_plot_log_loss(x_axis, results)
 
     # Plot a confusion matrix
     graphics.confusion_matrix()
 
     # Plot a feature importance graph
-    graphics.plot_feature_importance()
+    graphics.plot_feature_importance(model)
 
     # Now, with the val set we can output to get results
     pred = model.predict_proba(x_val)[:, 1].round()
 
     # For the submission, the ids must appear next to the prediction
-
     # Create a DataFrame out of the two ndarrays
     final_prediction = pd.DataFrame({'id': ids.transpose(), 'survives': pred.transpose()})
 
@@ -167,26 +146,9 @@ if algorithm == '1':
 
 elif algorithm == '2':
 
-    # Create random seed
-    seed = 5
-    np.random.seed(seed)
-
-    # Create a keras classifier with a model returned by the create_baseline function
-    estimator = KerasClassifier(build_fn=create_baseline, epochs=100, batch_size=5, verbose=1)
-
-    # Apply kfold with the keras classifier
-    kfold = StratifiedKFold(n_splits=10, shuffle=True, random_state=seed)
-
-    # Obtain and print the results obtained
-    results = cross_val_score(estimator, x_train, y_train, cv=kfold)
-    print("Results: %.2f%% (%.2f%%)" % (results.mean() * 100, results.std() * 100))
-
-elif algorithm == '3':
-
     print('1- Load previous model')
     print('2- Train model')
-    # option = input('Choose option')
-    option = '1'
+    option = input('Choose option: ')
 
     if option == '2':
 
@@ -217,14 +179,14 @@ elif algorithm == '3':
     # Load prediction data and history to plot interesting graphs
     graphics = Graphics()
 
-    if option == 2:
-        graphics.load_data(model, history, predictions, y_test)
+    if option == "2":
+        graphics.load_data(predictions, y_test)
 
         # Plot the evolution of cost during the training
-        graphics.plot_loss()
+        graphics.keras_plot_loss(history)
 
     else:
-        graphics.load_data(model, None, predictions, y_test)
+        graphics.load_data(predictions, y_test)
 
     # Plot a confusion matrix
     graphics.confusion_matrix()
@@ -241,17 +203,25 @@ elif algorithm == '3':
 
     output_predictions(final_prediction, 'keras')
 
-    # graphics.show()
+    graphics.show()
 
-elif algorithm == "4":
+elif algorithm == "3":
+
+    # Create the classifier
     clf = RandomForestClassifier()
+
+    # Train the model
     model = clf.fit(x_train, y_train)
+
+    # Make predictions
     predictions = model.predict(x_test)
 
+    # Plot confussion matrix
     graphics = Graphics()
-    graphics.load_data(model, None, predictions, y_test)
+    graphics.load_data(predictions, y_test)
     graphics.confusion_matrix()
 
+    # Make prediction with validation data
     predictions = model.predict(x_val)
 
     # Create a DataFrame out of the two ndarrays
@@ -263,4 +233,5 @@ elif algorithm == "4":
 
     output_predictions(final_prediction, 'randomForest')
 
+    # Show the graphics
     graphics.show()
